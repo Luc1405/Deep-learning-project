@@ -2,7 +2,9 @@ import tensorflow as tf
 
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.metrics import confusion_matrix, classification_report
 
+import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -74,13 +76,34 @@ history=model.fit(padded, training_labels_final, epochs=num_epochs, validation_d
 
 #List all the data in the history
 print(history.history.keys())
-#Summarize the history
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'val'], loc='upper left')
+
+# Set the seaborn theme for nice plot styles
+sns.set_theme(style="whitegrid")
+
+# Set the figure size for better visibility
+plt.figure(figsize=(12, 5))
+
+# Plot for accuracy
+plt.subplot(1, 2, 1) # 1 row, 2 columns, first subplot
+plt.plot(history.history['accuracy'], label='Train Accuracy', color='blue', linestyle='dashed')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy', color='orange', linestyle='solid')
+plt.title('Model Accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(loc='lower right')
+plt.ylim([0, 1])  # Set y-axis limits for better scale
+
+# Plot for loss
+plt.subplot(1, 2, 2) # 1 row, 2 columns, second subplot
+plt.plot(history.history['loss'], label='Train Loss', color='green', linestyle='dashed')
+plt.plot(history.history['val_loss'], label='Validation Loss', color='red', linestyle='solid')
+plt.title('Model Loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(loc='upper right')
+plt.ylim([0, 1])  # Set y-axis limits for better scale
+
+plt.tight_layout()
 plt.show()
 
 #Retrieve the weights of the embedding (e) layer
@@ -99,12 +122,73 @@ for word_num in range(1, vocab_size):
 out_v.close()
 out_m.close() 
 
+# Function to plot the distribution of correct and incorrect predictions
+def plot_prediction_distribution(predictions, true_labels, dataset_name='Training'):
+    # Convert predictions to label indices (0 or 1)
+    predicted_labels = [1 if x > 0.5 else 0 for x in predictions.flatten()]
+
+    # Calculate correct and incorrect predictions
+    correct_predictions = np.equal(predicted_labels, true_labels).astype(int)
+    correct_counts = np.bincount(correct_predictions, minlength=2)
+    
+    # Define the colors for the bar chart
+    colors = ['red' if x == 0 else 'green' for x in correct_predictions]
+    
+    # Create a bar chart
+    sns.barplot(x=['Incorrect', 'Correct'], y=correct_counts, palette=['red', 'green'])
+    plt.title(f'Distribution of Predictions for {dataset_name} Set')
+    plt.xlabel('Prediction Type')
+    plt.ylabel('Count')
+    plt.show()
+
+# Function to calculate and print the confusion matrix and classification report
+# and print out incorrectly classified texts
+def evaluate_model(predictions, true_labels, sentences, dataset_name='Training'):
+    # Convert predictions to label indices (0 or 1)
+    predicted_labels = [1 if x > 0.5 else 0 for x in predictions.flatten()]
+    
+    # Generate the confusion matrix
+    cm = confusion_matrix(true_labels, predicted_labels)
+    
+    # Convert the confusion matrix into a DataFrame
+    cm_df = pd.DataFrame(cm, 
+                         index = ['Ham (Actual)', 'Spam (Actual)'], 
+                         columns = ['Ham (Predicted)', 'Spam (Predicted)'])
+    
+    # Display the confusion matrix as a DataFrame
+    print(f"{dataset_name} Confusion Matrix:")
+    print(cm_df)
+    
+    # Generate and print the classification report
+    print(f"\n{dataset_name} Classification Report:")
+    report = classification_report(true_labels, predicted_labels, target_names=['Ham', 'Spam'], output_dict=True)
+    report_df = pd.DataFrame(report).transpose()
+    print(report_df)
+    print("\n")
+    
+    # Print out incorrectly classified texts
+    incorrects = np.where(predicted_labels != true_labels)[0]
+    print(f"Incorrectly Classified Texts from {dataset_name} Set:")
+    for index in incorrects:
+        print(f"Predicted: {'Spam' if predicted_labels[index] else 'Ham'} - Actual: {'Spam' if true_labels[index] else 'Ham'} - Text: {sentences[index]}")
+    print("\n")
+
+# Evaluate the model and plot the distribution for the training set
+train_predictions = model.predict(padded)
+evaluate_model(train_predictions, training_labels_final, training_sentences, dataset_name='Training')
+plot_prediction_distribution(train_predictions, training_labels_final, dataset_name='Training')
+
+# Evaluate the model and plot the distribution for the validation set
+validation_predictions = model.predict(testing_padded)
+evaluate_model(validation_predictions, testing_labels_final, testing_sentences, dataset_name='Validation')
+plot_prediction_distribution(validation_predictions, testing_labels_final, dataset_name='Validation')
+
 #Use the model to predict your own messages. Maximum of three (can always be changed)
 text_messages = []
 max_length_list = 3
 
 while len(text_messages) < max_length_list:
-    item = input("Enter your Item to the List: ")
+    item = input("Add your own message to predict: ")
     text_messages.append(item)
     print(text_messages)
 
