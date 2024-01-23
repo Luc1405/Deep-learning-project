@@ -16,3 +16,6 @@ In today's world there is more and more need of a spam detector, this is of cour
 # Data cleaning 
 
 Firstly changes were made to change the training data is the labelling. This is by changing spam to 1 and ham replaced by 0.
+
+# Usage
+To train the model, install all the necessary packages. After that, you can run the python file to train the model and use your own input to test the model. Longer messages are preferred, because the model does not handle short messages all that well.
